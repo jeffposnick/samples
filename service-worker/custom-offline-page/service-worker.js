@@ -13,40 +13,55 @@
 
 'use strict';
 
-const OFFLINE_CACHE = 'offline';
+// Incrementing CACHE_VERSION will kick off the install event and force previously cached
+// resources to be cached again.
+const CACHE_VERSION = 1;
+const CACHE_NAME = `offline-v${CACHE_VERSION}`;
 const OFFLINE_URL = 'offline.html';
 
-self.addEventListener('install', function(event) {
-  const offlineRequest = new Request(OFFLINE_URL);
+function createCacheBustedRequest(url) {
+  var request = new Request(url, {cache: 'reload'});
+  // See https://fetch.spec.whatwg.org/#concept-request-mode
+  // This is not yet supported in Chrome as of M48, so we need to explicitly check to see if the
+  // cache: 'reload' option had any effect.
+  if ('cache' in request) {
+    return request;
+  }
+
+  // If {cache: 'reload'} didn't have any effect, append a cache-busting URL parameter instead.
+  var bustedUrl = new URL(url, self.location.href);
+  bustedUrl.search += (bustedUrl.search ? '?' : '&') + 'cache-bust=' + Date.now();
+  return new Request(bustedUrl);
+}
+
+self.addEventListener('install', event => {
   event.waitUntil(
-    fetch(offlineRequest).then(function(response) {
-      return caches.open(OFFLINE_CACHE).then(function(cache) {
-        return cache.put(offlineRequest, response);
+    // We can't use cache.add() here, since we want OFFLINE_URL to be the cache key, but the actual
+    // URL we end up requesting might include a cache-busting parameter.
+    fetch(createCacheBustedRequest(OFFLINE_URL)).then(function(response) {
+      return caches.open(CACHE_NAME).then(function(cache) {
+        return cache.put(OFFLINE_URL, response);
       });
     })
   );
 });
 
-self.addEventListener('fetch', function(event) {
+self.addEventListener('fetch', event => {
   // We only want to call event.respondWith() if this is a GET request for an HTML document.
+  // This would ideally check event.request.mode === 'navigate', but that isn't supported in Chrome
+  // as of M48. See https://fetch.spec.whatwg.org/#concept-request-mode
   if (event.request.method === 'GET' &&
       event.request.headers.get('accept').includes('text/html')) {
     console.log('Handling fetch event for', event.request.url);
     event.respondWith(
-      fetch(event.request).catch(function(e) {
+      fetch(createCacheBustedRequest(event.request.url)).catch(error => {
         // The catch is only triggered if fetch() throws an exception, which will most likely
         // happen due to the server being unreachable.
         // If fetch() returns a valid HTTP response with an response code in the 4xx or 5xx range,
         // the catch() will NOT be called. If you need custom handling for 4xx or 5xx errors, see
         // https://github.com/GoogleChrome/samples/tree/gh-pages/service-worker/fallback-response
-
-        // Normally, fetch() will consult the browser's HTTP caches before attempting a
-        // network request, so in order to trigger offline failure for this sample, we had to
-        // use a cache-busting URL parameter to avoid the cache.
-        console.error('Fetch failed; returning offline page instead.', e);
-        return caches.open(OFFLINE_CACHE).then(function(cache) {
-          return cache.match(OFFLINE_URL);
-        });
+        console.log('Fetch failed; returning offline page instead.', error);
+        return caches.match(OFFLINE_URL);
       })
     );
   }

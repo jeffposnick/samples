@@ -46,7 +46,7 @@ limitations under the License.
         }
       });
     </script>
-    {% assign top_directory = page.url | split: '/' | first %}
+    {% assign top_directory = page.url | replace_first: '/' | split: '/' | first %}
     {% if top_directory == 'samples' %}
       {% assign path_prefix = '/samples/' %}
     {% else %}

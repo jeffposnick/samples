@@ -46,10 +46,14 @@ limitations under the License.
         }
       });
     </script>
-    {% assign sub_dirs = page.url | split: '/' | size | minus: 1 %}
-    {% capture relative_path_to_root %}{% for i in (1..sub_dirs) %}../{% endfor %}{% endcapture %}
-    <link rel="icon" href="{{ relative_path_to_root }}images/favicon.ico">
-    <link rel="stylesheet" href="{{ relative_path_to_root }}styles/main.css">
+    {% assign top_directory = page.url | split: '/' | first %}
+    {% if top_directory == 'samples' %}
+      {% assign path_prefix = '/samples/' %}
+    {% else %}
+      {% assign path_prefix = '/' %}
+    {% endif %}
+    <link rel="icon" href="{{ path_prefix }}images/favicon.ico">
+    <link rel="stylesheet" href="{{ path_prefix }}styles/main.css">
     {% for local_css_file in page.local_css_files %}<link rel="stylesheet" href="{{ local_css_file }}">{% endfor %}
     {% if page.additional_head_content %}{{ page.additional_head_content }}{% endif %}
   </head>

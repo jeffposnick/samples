@@ -43,12 +43,14 @@ export async function syncContentIndex(registration) {
       // it to the index.
       // category should end up being 'image', 'audio', or 'video'.
       const [category] = metadata.contentType.split('/');
+      const url = `/#/view/${metadata.src}`;
       await registration.index.add({
         // Use the cached media URL as the id.
         id: metadata.src,
         // Our web app has a route for viewing a specific cached media URL.
         // Note that this needs to be the URL for a page that will display the
         // cached media; *not* the URL for the media itself.
+        url,
         launchUrl: `/#/view/${metadata.src}`,
         // Use a generic title and description.
         title: `A saved ${category}`,
